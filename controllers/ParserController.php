@@ -1,6 +1,4 @@
-<?php
-
-namespace app\controllers;
+<?php namespace app\controllers;
 
 use app\models\Blog;
 use Yii;
@@ -28,7 +26,7 @@ class ParserController extends CoreController
         ini_set('memory_limit', '128M');
 
 
-        # Îïðåäåëåíèå ôóíêöèè, âûçûâàåìîé ïðè çàâåðøåíèè ïîòîêà
+        # ÐžÐ¿Ñ€ÐµÐ´ÐµÐ»ÐµÐ½Ð¸Ðµ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸, Ð²Ñ‹Ð·Ñ‹Ð²Ð°ÐµÐ¼Ð¾Ð¹ Ð¿Ñ€Ð¸ Ð·Ð°Ð²ÐµÑ€ÑˆÐµÐ½Ð¸Ð¸ Ð¿Ð¾Ñ‚Ð¾ÐºÐ°
         function callback_function($response, $info, $request)
         {
             if ($info['http_code'] !== 200) {
@@ -56,14 +54,14 @@ class ParserController extends CoreController
                 );
                 return;
             }
-            // Çäåñü íåîáõîäèìî íå çàáûâàòü ïðîâåðÿòü öåëîñòíîñòü è âàëèäíîñòü âîçâðàùàåìûõ äàííûõ, î ÷¸ì ïèñàëîñü âûøå.
+            // Ð—Ð´ÐµÑÑŒ Ð½ÐµÐ¾Ð±Ñ…Ð¾Ð´Ð¸Ð¼Ð¾ Ð½Ðµ Ð·Ð°Ð±Ñ‹Ð²Ð°Ñ‚ÑŒ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÑÑ‚ÑŒ Ñ†ÐµÐ»Ð¾ÑÑ‚Ð½Ð¾ÑÑ‚ÑŒ Ð¸ Ð²Ð°Ð»Ð¸Ð´Ð½Ð¾ÑÑ‚ÑŒ Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÐ¼Ñ‹Ñ… Ð´Ð°Ð½Ð½Ñ‹Ñ…, Ð¾ Ñ‡Ñ‘Ð¼ Ð¿Ð¸ÑÐ°Ð»Ð¾ÑÑŒ Ð²Ñ‹ÑˆÐµ.
         }
 
         $AC = new AngryCurl('callback_function', false);
-# Âêëþ÷àåì ïðèíóäèòåëüíûé âûâîä ëîãîâ áåç áóôåðèçàöèè â îêíî áðàóçåðà
+# Ð’ÐºÐ»ÑŽÑ‡Ð°ÐµÐ¼ Ð¿Ñ€Ð¸Ð½ÑƒÐ´Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ð¹ Ð²Ñ‹Ð²Ð¾Ð´ Ð»Ð¾Ð³Ð¾Ð² Ð±ÐµÐ· Ð±ÑƒÑ„ÐµÑ€Ð¸Ð·Ð°Ñ†Ð¸Ð¸ Ð² Ð¾ÐºÐ½Ð¾ Ð±Ñ€Ð°ÑƒÐ·ÐµÑ€Ð°
         $AC->init_console();
 
-        $AC->get($url, 'GET');
+        $AC->post($url);
         $AC->execute(200);
         //AngryCurl::print_debug();
         //return $this->render('index');
@@ -71,25 +69,61 @@ class ParserController extends CoreController
 
     public function actionSimple()
     {
+        ini_set('max_execution_time', 0);
+        ini_set('memory_limit', '128M');
+        ini_set( 'default_charset', 'UTF-8' );
+        //header('Content-Type: text/html; charset=UTF-8');
+
+
+        $arrResult = [];
+        $arrResult2 = [];
         $html = new simple_html_dom();
-        $html->load_file('http://nnm.me');
+        $html->load_file('http://politrussia.com/news/');
 
-        $items = $html->find('div.article');
-        //$subtitle = $html->find('subtitle');
+        // Find all links
+        foreach ($html->find('a.overlink') as $element) {
+            //echo $element->href. '<br>';
+            $arrResult[] = $element->href;
+        }
+        //vd($arrResult);
+
+
         $i = 0;
-        foreach ($items as $names){
+        foreach ($arrResult as $key => $link) {
+            $html->load_file('http://politrussia.com' . $link);
+            $i++;
+            $content = $html->find('div[class="news_text"]', 0)->plaintext;
+            $title = $html->find('h1[itemprop="name"]', 0)->plaintext;
 
-                $i++;
-                $modelBlog = new Blog();
-                $modelBlog->title = (string)$i;
-                $modelBlog->content = (string)$names;
-                $modelBlog->created_at = time();
-                $modelBlog->updated_at = time();
-                $modelBlog->author = Yii::$app->user->id;
-                $modelBlog->image = 'empty';
-                $modelBlog->save();
-
+            foreach ($html->find('img[itemprop="contentUrl"]') as $element) {
+                $img2 = 'http://politrussia.com' . $element->src;
             }
+
+            $content2 = mb_convert_encoding($content, "UTF-8", "Windows-1251");
+            $title2 = mb_convert_encoding($title, "UTF-8", "Windows-1251");
+
+            $arrResult2[$key]['title'] = $title2;
+            $arrResult2[$key]['content'] = $content2;
+            $arrResult2[$key]['img'] = $img2;
+        }
+
+        foreach($arrResult2 as $key => $row){
+            $modelBlog = new Blog();
+            $modelBlog->title = $row['title'];
+            $modelBlog->content = $row['content'];
+            $modelBlog->created_at = time();
+            $modelBlog->updated_at = time();
+            $modelBlog->author = Yii::$app->user->id;
+            $modelBlog->image = $row['img'];
+
+            $dublicate = Blog::getDublicateByTitle($row['title']);
+            if(!$dublicate){
+                $modelBlog->save();
+            }
+
+
+        }
+
         return $this->render('/site/index');
     }
 
@@ -98,6 +132,7 @@ class ParserController extends CoreController
         $modelBlog = Blog::find()->all();
         return $this->render('/parser/result', ['modelBlog' => $modelBlog]);
     }
+
     public function actionJade()
     {
         //$layout = 'main.jade';

@@ -66,4 +66,13 @@ class Blog extends \yii\db\ActiveRecord
     {
         return new BlogQuery(get_called_class());
     }
+
+    public static function getDublicateByTitle($title){
+        $model = self::find()->where(['title' => $title])->one();
+        if($model){
+            return true;
+        }else{
+            return false;
+        }
+    }
 }
